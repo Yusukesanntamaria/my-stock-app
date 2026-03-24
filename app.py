@@ -14,10 +14,11 @@ if "APP_PASSWORD" in st.secrets:
         st.warning("左のメニューにパスワードを入力してください。")
         st.stop()
 
-# AIの設定
+# AIの設定（モデル名を安定版の gemini-1.5-flash に修正）
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    # ここの名前を 1.5-flash に戻すのが一番確実です
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except:
     st.error("APIキーの設定を確認してください。")
 
@@ -37,37 +38,40 @@ if menu == "🔍 個別銘柄分析":
     ticker_symbol = st.sidebar.text_input("コード入力", "8058.T" if selection == "直接入力" else favorites[selection])
 
     if ticker_symbol:
-        stock = yf.Ticker(ticker_symbol)
-        info = stock.info
-        name = info.get('shortName', ticker_symbol)
-        st.title(f"📈 {name} ({ticker_symbol})")
+        try:
+            stock = yf.Ticker(ticker_symbol)
+            info = stock.info
+            name = info.get('shortName', ticker_symbol)
+            st.title(f"📈 {name} ({ticker_symbol})")
 
-        tab1, tab2, tab3 = st.tabs(["📊 基本指標", "📈 チャート", "🤖 AI詳細診断"])
+            tab1, tab2, tab3 = st.tabs(["📊 基本指標", "📈 チャート", "🤖 AI詳細診断"])
 
-        with tab1:
-            c1, c2, c3 = st.columns(3)
-            c1.metric("株価", f"¥{info.get('currentPrice', 'N/A')}")
-            c2.metric("PER", f"{info.get('trailingPE', 'N/A')}倍")
-            c3.metric("配当利回り", f"{info.get('dividendYield', 0)*100:.2f}%")
-            with st.expander("もっと詳しく"):
-                st.write(f"PBR: {info.get('priceToBook', 'N/A')}倍")
-                st.write(f"時価総額: {info.get('marketCap', 0):,}円")
+            with tab1:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("株価", f"¥{info.get('currentPrice', 'N/A')}")
+                c2.metric("PER", f"{info.get('trailingPE', 'N/A')}倍")
+                c3.metric("配当利回り", f"{info.get('dividendYield', 0)*100:.2f}%")
+                with st.expander("もっと詳しく"):
+                    st.write(f"PBR: {info.get('priceToBook', 'N/A')}倍")
+                    st.write(f"時価総額: {info.get('marketCap', 0):,}円")
 
-        with tab2:
-            hist = stock.history(period="1y")
-            fig = go.Figure(data=[go.Scatter(x=hist.index, y=hist['Close'], mode='lines', name='終値')])
-            fig.update_layout(height=450, margin=dict(l=0, r=0, t=0, b=0))
-            st.plotly_chart(fig, use_container_width=True)
+            with tab2:
+                hist = stock.history(period="1y")
+                fig = go.Figure(data=[go.Scatter(x=hist.index, y=hist['Close'], mode='lines', name='終値')])
+                fig.update_layout(height=450, margin=dict(l=0, r=0, t=0, b=0))
+                st.plotly_chart(fig, use_container_width=True)
 
-        with tab3:
-            if st.button("AIレポートを生成"):
-                with st.spinner("分析中..."):
-                    try:
-                        prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{info.get('dividendYield',0)*100:.1f}%から、今後の見通しを分析して。"
-                        res = model.generate_content(prompt)
-                        st.info(res.text)
-                    except Exception as e:
-                        st.error(f"AI分析失敗: {e}")
+            with tab3:
+                if st.button("AIレポートを生成"):
+                    with st.spinner("分析中..."):
+                        try:
+                            prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{info.get('dividendYield',0)*100:.1f}%から、今後の見通しを分析して。"
+                            res = model.generate_content(prompt)
+                            st.info(res.text)
+                        except Exception as e:
+                            st.error(f"AI分析失敗: {e}")
+        except Exception as e:
+            st.error(f"データ取得エラー: {e}")
 
 # --- 4. 【ページB】掘り出し物探し ---
 elif menu == "🏆 掘り出し物探し":
@@ -101,7 +105,10 @@ elif menu == "🏆 掘り出し物探し":
             st.table(pd.DataFrame(results))
             
             st.subheader("🤖 AIのピックアップ")
-            ai_res = model.generate_content(f"以下のリストから、初心者が長期で持つべき銘柄を1つ選んで理由を教えて：{results}")
-            st.info(ai_res.text)
+            try:
+                ai_res = model.generate_content(f"以下のリストから、初心者が長期で持つべき銘柄を1つ選んで理由を教えて：{results}")
+                st.info(ai_res.text)
+            except Exception as e:
+                st.error(f"AI分析中にエラーが発生しました: {e}")
         else:
             st.warning("現在は条件に合う銘柄がありません。")
