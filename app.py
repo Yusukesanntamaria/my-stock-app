@@ -164,7 +164,8 @@ elif menu == "🏆 掘り出し物探し":
                     per = info.get('trailingPE', 100)
                     div = info.get('dividendYield', 0) * 100
                     
-                    if per < 15 and div > 3.5:
+                  # 検索条件：PER15倍以下 且つ 利回り3.5%以上 〜 15%未満（異常値を弾く）
+                    if per < 15 and 3.5 <= div < 15:
                         results.append({
                             "銘柄": info.get('shortName', t),
                             "コード": t,
