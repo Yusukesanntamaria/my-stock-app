@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import google.generativeai as genai
+import time  # ← ★新たに追加：時間をコントロールする部品
 
 # --- 1. アプリの基本設定とロック ---
 st.set_page_config(page_title="なるちゃん投資分析システム", layout="wide")
@@ -14,11 +15,10 @@ if "APP_PASSWORD" in st.secrets:
         st.warning("左のメニューにパスワードを入力してください。")
         st.stop()
 
-# AIの設定（モデル名を安定版の gemini-1.5-flash に修正）
+# AIの設定
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # ここの名前を 1.5-flash に戻すのが一番確実です
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except:
     st.error("APIキーの設定を確認してください。")
 
@@ -72,12 +72,12 @@ if menu == "🔍 個別銘柄分析":
                             st.error(f"AI分析失敗: {e}")
         except Exception as e:
             st.error(f"データ取得エラー: {e}")
+
 # --- 4. 【ページB】掘り出し物探し ---
 elif menu == "🏆 掘り出し物探し":
     st.title("🏆 お宝銘柄スクリーニング")
     st.write("指定したカテゴリの銘柄から、条件に合う株を抽出します。")
 
-    # ▼ 日経225フルスキャンリストを追加 ▼
     categories = {
         "🔥 日経225 フルスキャン (約3〜4分)": [
             "1332.T", "1605.T", "1721.T", "1801.T", "1802.T", "1803.T", "1808.T", "1812.T", "1925.T", "1928.T",
@@ -114,15 +114,12 @@ elif menu == "🏆 掘り出し物探し":
 
     if st.button(f"{selected_category} をスキャン開始"):
         results = []
-        
-        # ▼ 進捗ゲージ ▼
         progress_bar = st.progress(0)
         status_text = st.empty()
         total = len(check_list)
 
         with st.spinner("データを取得・計算しています..."):
             for i, t in enumerate(check_list):
-                # ゲージとテキストを動かす
                 progress_bar.progress((i + 1) / total)
                 status_text.text(f"スキャン中... {i+1}/{total}社完了")
 
@@ -131,12 +128,12 @@ elif menu == "🏆 掘り出し物探し":
                     info = s.info
                     
                     if 'trailingPE' not in info or 'dividendYield' not in info:
+                        time.sleep(0.5) # ★データが無い時も0.5秒休む
                         continue
                         
                     per = info.get('trailingPE', 100)
                     div = info.get('dividendYield', 0) * 100
                     
-                    # 検索条件：PER15倍以下 且つ 利回り3.5%以上
                     if per < 15 and div > 3.5:
                         results.append({
                             "銘柄": info.get('shortName', t),
@@ -146,7 +143,10 @@ elif menu == "🏆 掘り出し物探し":
                             "価格": f"¥{info.get('currentPrice', 'N/A')}"
                         })
                 except:
-                    continue
+                    pass
+                
+                # ★最大のポイント：1社調べるごとに0.5秒の深呼吸を入れる
+                time.sleep(0.5)
         
         status_text.text("✨ スキャン完了！")
 
