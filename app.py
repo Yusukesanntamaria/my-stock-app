@@ -4,8 +4,14 @@ import plotly.graph_objects as go
 import google.generativeai as genai
 
 # --- 1. アプリの基本設定 ---
-st.set_page_config(page_title="成瀬投資分析システム", layout="wide", initial_sidebar_state="expanded")
-
+st.set_page_config(page_title="なるちゃん投資分析システム", layout="wide", initial_sidebar_state="expanded")
+# === 🔒 追加：パスワードロック機能 ===
+if "APP_PASSWORD" in st.secrets:
+    entered_password = st.sidebar.text_input("🔑 起動パスワード", type="password")
+    if entered_password != st.secrets["APP_PASSWORD"]:
+        st.warning("👈 左のメニューからパスワードを入力してロックを解除してください。")
+        st.stop()  # パスワードが違う場合はここで画面の描画をストップ！
+# ==================================
 # カスタムCSSで見た目を少しリッチに
 st.markdown("""
     <style>
