@@ -43,14 +43,18 @@ if menu == "🔍 個別銘柄分析":
             name = info.get('shortName', ticker_symbol)
             st.title(f"📈 {name} ({ticker_symbol})")
 
-            # ▼ タブが4つに増えました！ ▼
             tab1, tab2, tab3, tab4 = st.tabs(["📊 基本指標", "📈 チャート", "🤖 AI詳細診断", "📰 ニュース動向予測"])
 
             with tab1:
                 c1, c2, c3 = st.columns(3)
                 c1.metric("株価", f"¥{info.get('currentPrice', 'N/A')}")
                 c2.metric("PER", f"{info.get('trailingPE', 'N/A')}倍")
-                c3.metric("配当利回り", f"{info.get('dividendYield', 0)*100:.2f}%")
+                
+                # 個別画面でも異常値(100%超え)は表示を調整
+                raw_div = info.get('dividendYield', 0)
+                display_div = raw_div if raw_div < 1 else raw_div / 100
+                c3.metric("配当利回り", f"{display_div * 100:.2f}%")
+                
                 with st.expander("もっと詳しく"):
                     st.write(f"PBR: {info.get('priceToBook', 'N/A')}倍")
                     st.write(f"時価総額: {info.get('marketCap', 0):,}円")
@@ -65,13 +69,12 @@ if menu == "🔍 個別銘柄分析":
                 if st.button("AIレポートを生成"):
                     with st.spinner("分析中..."):
                         try:
-                            prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{info.get('dividendYield',0)*100:.1f}%から、今後の見通しを分析して。"
+                            prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{display_div*100:.1f}%から、今後の見通しを分析して。"
                             res = model.generate_content(prompt)
                             st.info(res.text)
                         except Exception as e:
                             st.error(f"AI分析失敗: {e}")
                             
-            # ▼ 新機能：ニュースから動向予測 ▼
             with tab4:
                 st.write("最新の関連ニュースをAIが読み込み、今後の動向を予測します。")
                 if st.button("ニュースから将来予測を生成"):
@@ -81,7 +84,6 @@ if menu == "🔍 個別銘柄分析":
                             if not news_data:
                                 st.warning("この銘柄の最近のニュースが見つかりませんでした。")
                             else:
-                                # 最新ニュースを最大5件取得
                                 news_texts = []
                                 for n in news_data[:5]:
                                     title = n.get('title', '')
@@ -92,7 +94,6 @@ if menu == "🔍 個別銘柄分析":
                                 news_joined = "\n".join(news_texts)
                                 st.markdown(f"**【読み込んだ直近のニュース】**\n{news_joined}")
                                 
-                                # Geminiにニュースを投げて予測させる
                                 prompt = f"あなたはプロの株式アナリストです。以下の{name}({ticker_symbol})に関する最新ニュースに基づいて、今後の株価の動向や注目すべきポイント、懸念点などを分かりやすく解説・予測してください。\n\n{news_joined}"
                                 res = model.generate_content(prompt)
                                 st.success("💡 AIのニュース分析・予測レポート")
@@ -107,6 +108,13 @@ if menu == "🔍 個別銘柄分析":
 elif menu == "🏆 掘り出し物探し":
     st.title("🏆 お宝銘柄スクリーニング")
     st.write("指定したカテゴリの銘柄から、条件に合う株を抽出します。")
+
+    # ▼ 新機能：スライダーで条件を自由に変更 ▼
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("⚙️ 検索条件フィルター")
+    max_per = st.sidebar.slider("PER（割安度）の上限", 5.0, 50.0, 15.0, 0.5)
+    min_div = st.sidebar.slider("配当利回りの下限 (%)", 0.0, 10.0, 3.5, 0.1)
+    max_div = st.sidebar.slider("配当利回りの上限 (%) ※異常値カット", 3.0, 20.0, 10.0, 0.5)
 
     categories = {
         "🔥 日経225 フルスキャン (約3〜4分)": [
@@ -162,10 +170,13 @@ elif menu == "🏆 掘り出し物探し":
                         continue
                         
                     per = info.get('trailingPE', 100)
-                    div = info.get('dividendYield', 0) * 100
                     
-                  # 検索条件：PER15倍以下 且つ 利回り3.5%以上 〜 15%未満（異常値を弾く）
-                    if per < 15 and 3.5 <= div < 15:
+                    # 生データが1を超える異常値の対策を追加
+                    raw_div = info.get('dividendYield', 0)
+                    div = (raw_div if raw_div < 1 else raw_div / 100) * 100
+                    
+                    # ★ここでスライダーの数値を条件として使います！
+                    if per <= max_per and min_div <= div <= max_div:
                         results.append({
                             "銘柄": info.get('shortName', t),
                             "コード": t,
@@ -191,4 +202,4 @@ elif menu == "🏆 掘り出し物探し":
             except Exception as e:
                 st.error(f"AI分析中にエラーが発生しました: {e}")
         else:
-            st.warning("現在は条件に合う銘柄がありませんでした。")
+            st.warning("指定した条件に合う銘柄はありませんでした。左の条件を緩めてみてください。")
