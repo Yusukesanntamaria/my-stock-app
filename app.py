@@ -14,7 +14,7 @@ if "APP_PASSWORD" in st.secrets:
         st.warning("左のメニューにパスワードを入力してください。")
         st.stop()
 
-# AIの設定 (最新の 2.0-flash を指定)
+# AIの設定
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-2.0-flash')
@@ -62,9 +62,12 @@ if menu == "🔍 個別銘柄分析":
         with tab3:
             if st.button("AIレポートを生成"):
                 with st.spinner("分析中..."):
-                    prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{info.get('dividendYield',0)*100:.1f}%から、今後の見通しを分析して。"
-                    res = model.generate_content(prompt)
-                    st.info(res.text)
+                    try:
+                        prompt = f"{name}({ticker_symbol})のPER{info.get('trailingPE')}倍、利回り{info.get('dividendYield',0)*100:.1f}%から、今後の見通しを分析して。"
+                        res = model.generate_content(prompt)
+                        st.info(res.text)
+                    except Exception as e:
+                        st.error(f"AI分析失敗: {e}")
 
 # --- 4. 【ページB】掘り出し物探し ---
 elif menu == "🏆 掘り出し物探し":
@@ -72,26 +75,26 @@ elif menu == "🏆 掘り出し物探し":
     st.write("現在、特定の「高配当・割安」候補リストから条件に合う株を抽出します。")
 
     if st.button("スキャン開始"):
-        # 調査対象（成瀬さんが気になるセクターを並べています）
         check_list = ["8058.T", "8316.T", "9101.T", "8593.T", "9434.T", "7203.T", "8001.T", "1928.T", "8053.T"]
         results = []
 
         with st.spinner("市場データを照合中..."):
             for t in check_list:
-                s = yf.Ticker(t)
-                info = s.info
-                per = info.get('trailingPE', 100)
-                div = info.get('dividendYield', 0) * 100
-                
-                # 条件：PER 15倍以下 且つ 利回り 3.5%以上
-                if per < 15 and div > 3.5:
-                    results.append({
-                        "銘柄": info.get('shortName'),
-                        "コード": t,
-                        "PER": f"{per:.1f}倍",
-                        "利回り": f"{div:.2f}%",
-                        "価格": f"¥{info.get('currentPrice')}"
-                    })
+                try:
+                    s = yf.Ticker(t)
+                    i = s.info
+                    per = i.get('trailingPE', 100)
+                    div = i.get('dividendYield', 0) * 100
+                    if per < 15 and div > 3.5:
+                        results.append({
+                            "銘柄": i.get('shortName'),
+                            "コード": t,
+                            "PER": f"{per:.1f}倍",
+                            "利回り": f"{div:.2f}%",
+                            "価格": f"¥{i.get('currentPrice')}"
+                        })
+                except:
+                    continue
 
         if results:
             st.success(f"{len(results)}件見つかりました！")
@@ -102,8 +105,3 @@ elif menu == "🏆 掘り出し物探し":
             st.info(ai_res.text)
         else:
             st.warning("現在は条件に合う銘柄がありません。")
-
-    except Exception as e:
-        st.error(f"データの取得に失敗しました。銘柄コードが正しいか確認してください。: {e}")
-else:
-    st.info("左側のサイドバーから銘柄を選択、またはコードを入力してください。")
