@@ -18,7 +18,7 @@ if "APP_PASSWORD" in st.secrets:
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     # ここの名前を 1.5-flash に戻すのが一番確実です
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except:
     st.error("APIキーの設定を確認してください。")
 
