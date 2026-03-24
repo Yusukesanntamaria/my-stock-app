@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import google.generativeai as genai
 
 # --- 1. アプリの基本設定とロック ---
-st.set_page_config(page_title="成瀬投資分析システム", layout="wide")
+st.set_page_config(page_title="なるちゃん投資分析システム", layout="wide")
 
 # パスワードロック
 if "APP_PASSWORD" in st.secrets:
