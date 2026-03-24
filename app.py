@@ -3,12 +3,11 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import google.generativeai as genai
-import time  # ← ★新たに追加：時間をコントロールする部品
+import time
 
 # --- 1. アプリの基本設定とロック ---
 st.set_page_config(page_title="なるちゃん投資分析システム", layout="wide")
 
-# パスワードロック
 if "APP_PASSWORD" in st.secrets:
     entered_password = st.sidebar.text_input("🔑 起動パスワード", type="password")
     if entered_password != st.secrets["APP_PASSWORD"]:
@@ -44,7 +43,8 @@ if menu == "🔍 個別銘柄分析":
             name = info.get('shortName', ticker_symbol)
             st.title(f"📈 {name} ({ticker_symbol})")
 
-            tab1, tab2, tab3 = st.tabs(["📊 基本指標", "📈 チャート", "🤖 AI詳細診断"])
+            # ▼ タブが4つに増えました！ ▼
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 基本指標", "📈 チャート", "🤖 AI詳細診断", "📰 ニュース動向予測"])
 
             with tab1:
                 c1, c2, c3 = st.columns(3)
@@ -70,6 +70,36 @@ if menu == "🔍 個別銘柄分析":
                             st.info(res.text)
                         except Exception as e:
                             st.error(f"AI分析失敗: {e}")
+                            
+            # ▼ 新機能：ニュースから動向予測 ▼
+            with tab4:
+                st.write("最新の関連ニュースをAIが読み込み、今後の動向を予測します。")
+                if st.button("ニュースから将来予測を生成"):
+                    with st.spinner("最新ニュースを収集・分析中..."):
+                        try:
+                            news_data = stock.news
+                            if not news_data:
+                                st.warning("この銘柄の最近のニュースが見つかりませんでした。")
+                            else:
+                                # 最新ニュースを最大5件取得
+                                news_texts = []
+                                for n in news_data[:5]:
+                                    title = n.get('title', '')
+                                    publisher = n.get('publisher', '')
+                                    if title:
+                                        news_texts.append(f"・{title} ({publisher}より)")
+                                
+                                news_joined = "\n".join(news_texts)
+                                st.markdown(f"**【読み込んだ直近のニュース】**\n{news_joined}")
+                                
+                                # Geminiにニュースを投げて予測させる
+                                prompt = f"あなたはプロの株式アナリストです。以下の{name}({ticker_symbol})に関する最新ニュースに基づいて、今後の株価の動向や注目すべきポイント、懸念点などを分かりやすく解説・予測してください。\n\n{news_joined}"
+                                res = model.generate_content(prompt)
+                                st.success("💡 AIのニュース分析・予測レポート")
+                                st.write(res.text)
+                        except Exception as e:
+                            st.error(f"ニュース取得・分析中にエラーが発生しました: {e}")
+
         except Exception as e:
             st.error(f"データ取得エラー: {e}")
 
@@ -128,7 +158,7 @@ elif menu == "🏆 掘り出し物探し":
                     info = s.info
                     
                     if 'trailingPE' not in info or 'dividendYield' not in info:
-                        time.sleep(0.5) # ★データが無い時も0.5秒休む
+                        time.sleep(0.5)
                         continue
                         
                     per = info.get('trailingPE', 100)
@@ -145,7 +175,6 @@ elif menu == "🏆 掘り出し物探し":
                 except:
                     pass
                 
-                # ★最大のポイント：1社調べるごとに0.5秒の深呼吸を入れる
                 time.sleep(0.5)
         
         status_text.text("✨ スキャン完了！")
